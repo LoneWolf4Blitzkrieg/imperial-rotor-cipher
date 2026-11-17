@@ -8,6 +8,8 @@ A ten-rotor cipher machine in the Enigma family, built as a digital model of an 
 
 ![The console at 1920 × 1080](docs/screenshots/desktop-1920.png)
 
+**White paper:** [How the Imperial Rotor Cipher works, and how strong it is](docs/Imperial_Rotor_Cipher_White_Paper.pdf) (PDF, 16 pages).
+
 ## What it does
 
 - **Ten rotors and a reflector** over the 94 visible keyboard characters (`!` to `~`).
