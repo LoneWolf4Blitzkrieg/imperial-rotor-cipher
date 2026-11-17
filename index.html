@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<!--
+  Imperial Rotor Cipher
+  Copyright (C) 2026 Antonio
+
+  This program is free software: you can redistribute it and/or modify it under the terms of the
+  GNU General Public License as published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version. It is distributed WITHOUT ANY WARRANTY; see the
+  GNU General Public License for details: https://www.gnu.org/licenses/gpl-3.0.html
+
+  This file is built from src/ by tools/build.js. Edit the files in src/, then run: node tools/build.js
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An offline, ten-rotor electromechanical cipher machine for the browser.">
+<title>Imperial Rotor Cipher</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 3 59 17v30L32 61 5 47V17Z' fill='%23111' stroke='%23e0262f' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%23e0262f'/%3E%3C/svg%3E">
+<style>
+/* Imperial Rotor Cipher: console styles. Copyright (C) 2026 Antonio. SPDX-License-Identifier: GPL-3.0-or-later */
+:root {
+  --void: #07090b;
+  --gunmetal: #1d2227;
+  --edge: #7a838c;
+  --text: #d6dce1;
+  --text-dim: #a3acb5;
+  --red: #e0262f;
+  --red-text: #ff6b70;
+  --red-glow: rgba(224, 38, 47, 0.55);
+  --amber: #f0a640;
+  --amber-dim: #8a5d1f;
+  --ok: #8fd18f;
+  --focus: #7fd4ff;
+  --display: "Bahnschrift SemiCondensed", "Bahnschrift", "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow",
+    "Liberation Sans Narrow", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Liberation Sans", sans-serif;
+  --mono: "Cascadia Mono", "Consolas", "SF Mono", "Menlo", "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --chamfer: 14px;
+  --cell: 32px;              /* height of one symbol band on a rotor drum */
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 50% 0%, #1a2026 0%, var(--void) 70%);
+  color: var(--text);
+  font: 15px/1.5 var(--body);
+}
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+button, input, textarea { font: inherit; color: inherit; }
+h1, h2, h3, .btn, .tab, .seg, .endplate, .rotor-top, .readout-label, .keyfield label, .field label, .readout span, summary {
+  font-family: var(--display);
+}
+
+/* ------------------------------------------------------------ frame */
+.console { max-width: 1680px; margin: 0 auto; padding: 18px 20px 36px; display: grid; gap: 16px; }
+
+.plate {
+  position: relative; min-width: 0;
+  background: linear-gradient(180deg, #262c32 0%, var(--gunmetal) 100%);
+  clip-path: polygon(var(--chamfer) 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer),
+    100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, var(--chamfer) 100%, 0 calc(100% - var(--chamfer)),
+    0 var(--chamfer));
+  padding: 16px 22px 18px;
+}
+.plate::before {             /* bevelled inner edge */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.plate-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.plate-head h2 { margin: 0; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.05em; }
+.plate-head .designation { margin: 0; font-size: 0.85rem; color: var(--text-dim); }
+
+/* ------------------------------------------------------------ masthead */
+.masthead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; padding: 12px 22px; }
+.emblem { width: 52px; height: 52px; }
+.masthead h1 { margin: 0; font-size: clamp(1.5rem, 2.6vw, 2.2rem); font-weight: 700; letter-spacing: 0.14em; line-height: 1.05; color: #eef1f3; }
+.masthead p { margin: 4px 0 0; color: var(--text-dim); font-size: 0.92rem; }
+.readouts { display: flex; gap: 10px; align-items: stretch; }
+.readout {
+  min-width: 104px; padding: 6px 10px; background: #050607; border: 1px solid #000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); text-align: right;
+}
+.readout b { display: block; font: 600 1.2rem/1.15 var(--mono); color: var(--amber); text-shadow: 0 0 8px rgba(240, 166, 64, 0.35); }
+.readout span { font-size: 0.78rem; color: var(--text-dim); }
+.sound { display: inline-flex; align-items: center; gap: 8px; }
+.sound svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.sound .spk { fill: currentColor; }
+.sound[aria-pressed="true"] .mute, .sound[aria-pressed="false"] .wave { display: none; }
+
+/* ------------------------------------------------------------ rotor bank */
+.bank-wrap { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: stretch; }
+.endplate {
+  display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg);
+  background: linear-gradient(90deg, #2c3238, #1a1e22); border: 1px solid #000; color: var(--text-dim);
+  font-size: 0.82rem; letter-spacing: 0.18em;
+}
+.endplate.reflector { color: var(--red-text); }
+.bank {
+  display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; padding: 12px 10px 10px;
+  background: linear-gradient(180deg, #0b0e11, #050607); border: 1px solid #000;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+.bank::after {               /* armoured glass */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0%, transparent 35%, transparent 70%, rgba(255, 255, 255, 0.03) 100%);
+}
+.rotor { display: grid; gap: 6px; justify-items: center; min-width: 0; container-type: inline-size; }
+.rotor-top { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--text-dim); }
+.pawl {
+  width: 9px; height: 9px; border-radius: 50%; background: #2a1517; border: 1px solid #7a4a4e;
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.pawl.on { background: var(--red); border-color: #ff9a9e; box-shadow: 0 0 8px var(--red-glow); transition: none; }
+
+.drum {
+  position: relative; width: 100%; max-width: 76px; height: calc(var(--cell) * 5); overflow: hidden;
+  border: 1px solid #000; border-radius: 4px;
+  background: linear-gradient(90deg, #1b1f23 0%, #4a525b 22%, #6c757e 50%, #4a525b 78%, #1b1f23 100%);
+}
+.drum:focus-visible { outline-offset: 3px; }
+.drum::before, .drum::after {   /* curvature shading */
+  content: ""; position: absolute; left: 0; right: 0; height: calc(var(--cell) * 1.8); z-index: 2; pointer-events: none;
+}
+.drum::before { top: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.35)); }
+.drum::after { bottom: 0; background: linear-gradient(0deg, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.35)); }
+.window {
+  position: absolute; left: -1px; right: -1px; top: 50%; height: calc(var(--cell) + 2px); transform: translateY(-50%); z-index: 3;
+  border-top: 2px solid var(--red); border-bottom: 2px solid var(--red);
+  background: linear-gradient(180deg, rgba(255, 196, 120, 0.22), rgba(255, 160, 60, 0.10));
+  box-shadow: 0 0 12px rgba(224, 38, 47, 0.28), inset 0 0 10px rgba(255, 170, 70, 0.18); pointer-events: none;
+}
+.band { position: absolute; left: 0; right: 0; top: calc(50% - var(--cell) * 2.5); }
+.band span {
+  display: flex; align-items: center; justify-content: center; height: var(--cell); position: relative;
+  font: 700 calc(var(--cell) * 0.6) var(--mono); color: #0b0d0f; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.band span.notch::after {
+  content: ""; position: absolute; right: 4px; top: 50%; width: 8px; height: 8px; transform: translateY(-50%) rotate(45deg);
+  background: var(--red); outline: 1px solid #000; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+.band.turn { animation: turn 0.12s ease-out; }
+@keyframes turn { from { transform: translateY(var(--cell)); } to { transform: translateY(0); } }
+
+/* key setting: − 07 + under each drum; stacks when the rotor column is narrow */
+.setting {
+  display: grid; grid-template-columns: 20px minmax(24px, 1fr) 20px; width: 100%; max-width: 76px; height: 26px;
+  background: #050607; border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.setting button {
+  display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-dim); cursor: pointer;
+}
+.setting button svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+.setting button:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+.setting button:active { background: rgba(255, 255, 255, 0.14); }
+.num {
+  display: grid; place-items: center; border-left: 1px solid #1b1f23; border-right: 1px solid #1b1f23;
+  font: 700 0.95rem var(--mono); color: var(--amber); text-shadow: 0 0 6px rgba(240, 166, 64, 0.35);
+}
+@container (max-width: 61px) {
+  .setting { grid-template-columns: 1fr; grid-template-rows: 24px 24px 24px; height: auto; }
+  .setting .num { border: 0; border-top: 1px solid #1b1f23; border-bottom: 1px solid #1b1f23; order: 0; }
+  .setting [data-d="1"] { order: -1; }
+  .setting [data-d="-1"] { order: 1; }
+}
+.trace { display: grid; width: 100%; font: 0.8rem/1.35 var(--mono); color: var(--text-dim); text-align: center; white-space: nowrap; }
+.trace .fwd { color: var(--text); }
+.trace .ret { color: var(--red-text); }
+.bank-legend { display: flex; gap: 6px 18px; flex-wrap: wrap; margin-top: 10px; font-size: 0.85rem; color: var(--text-dim); }
+.bank-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: 0; }
+.bank-legend .lg-notch { background: var(--red); transform: rotate(45deg); }
+.bank-legend .lg-pawl { background: var(--red); border-radius: 50%; }
+.bank-legend .lg-fwd { background: var(--text); height: 2px; width: 12px; vertical-align: 3px; }
+.bank-legend .lg-ret { background: var(--red-text); height: 2px; width: 12px; vertical-align: 3px; }
+
+/* ------------------------------------------------------------ key */
+.key-plate { display: flex; flex-direction: column; }
+.keystrip { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 16px; align-items: end; flex: 1; align-content: start; }
+.keyfield label, .field label { display: flex; justify-content: space-between; gap: 10px; font-size: 0.88rem; color: var(--text-dim); margin-bottom: 5px; }
+.keyfield input {
+  width: 100%; min-width: 0; padding: 11px 12px; background: #050607; border: 1px solid #000; color: var(--amber);
+  font: 600 1.1rem var(--mono); letter-spacing: 0.04em; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.keyfield input[aria-invalid="true"] { color: var(--red-text); box-shadow: inset 0 0 0 1px var(--red); }
+.key-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.note { margin: 0; font-size: 0.9rem; color: var(--text-dim); grid-column: 1 / -1; }
+.label-row { display: flex; align-items: end; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.label-row label { margin: 0; }
+.now { grid-column: 1 / -1; }
+.now output {
+  display: block; padding: 8px 12px; background: #050607; border: 1px solid #000; color: var(--text);
+  font: 600 1rem var(--mono); letter-spacing: 0.04em; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.note strong { color: var(--text); font-weight: 600; }
+
+/* ------------------------------------------------------------ buttons */
+.btn {
+  position: relative; padding: 9px 16px; min-height: 40px; border: 1px solid #000; cursor: pointer;
+  background: linear-gradient(180deg, #4a535d, #2c3238); color: #eef1f3; font-weight: 600; letter-spacing: 0.04em;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  white-space: nowrap;
+}
+.btn:hover { background: linear-gradient(180deg, #57616c, #343b42); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus), inset 0 0 0 4px #000; }
+.btn.primary { background: linear-gradient(180deg, #c8262e, #8f1218); }
+.btn.primary:hover { background: linear-gradient(180deg, #d42c34, #a3161d); }
+.btn[disabled] { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
+.btn { isolation: isolate; }
+/* outlined button: the chamfered outline is the button's own fill showing round an inset face */
+.btn.quiet { background: var(--edge); border-color: transparent; color: var(--text); }
+.btn.quiet::after {
+  content: ""; position: absolute; inset: 1px; z-index: -1; background: #20252a;
+  clip-path: polygon(7.5px 0, 100% 0, 100% calc(100% - 7.5px), calc(100% - 7.5px) 100%, 0 100%, 0 7.5px);
+}
+.btn.quiet:hover::after { background: #2a3037; }
+.btn.quiet:focus-visible { box-shadow: none; background: var(--focus); }
+.btn.quiet:focus-visible::after { inset: 3px; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.btn.small { min-height: 30px; padding: 4px 12px; font-size: 0.85rem; }
+.sound[aria-pressed="true"] { color: var(--amber); background: var(--amber-dim); }
+
+/* ------------------------------------------------------------ operator */
+.op-plate { display: flex; flex-direction: column; }
+.op-head { align-items: center; }
+.tabs { display: flex; border-bottom: 1px solid #000; }
+.tab {
+  padding: 6px 14px; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600;
+  border-bottom: 3px solid transparent; margin-bottom: -1px; font-size: 0.95rem;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--red); }
+.live-bar { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-bottom: 10px; }
+.switch { display: inline-flex; border: 1px solid #000; background: #050607; padding: 2px; }
+.seg { border: 0; padding: 6px 14px; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; }
+.seg[aria-checked="true"] { background: linear-gradient(180deg, #4a535d, #2c3238); color: #fff; box-shadow: inset 0 -2px 0 var(--red); }
+.live-hint { margin: 0; font-size: 0.86rem; color: var(--text-dim); flex: 1; min-width: 240px; }
+kbd { font: 0.8rem var(--mono); padding: 0 5px; border: 1px solid var(--edge); background: #0b0d0f; color: var(--text); white-space: nowrap; }
+
+/* LCD: a backlit display over a real (invisible) text field, so keyboards, paste and phones all work */
+.lcd-bezel {
+  position: relative; padding: 12px; border: 1px solid #000; border-radius: 6px;
+  background: linear-gradient(180deg, #2a3036, #15191d);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 0 #000;
+}
+.lcd {
+  position: relative; overflow: hidden; border-radius: 3px; padding: 14px 18px 12px;
+  background:
+    repeating-linear-gradient(0deg, rgba(60, 30, 0, 0.07) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(60, 30, 0, 0.05) 0 1px, transparent 1px 3px),
+    radial-gradient(130% 160% at 50% 0%, #f6b956 0%, #e39a35 55%, #c47c20 100%);
+  color: #2a1603;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 6px 18px rgba(80, 40, 0, 0.35);
+}
+.lcd::after {               /* glass glare */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 38%);
+}
+.lcd-main {             /* four lines; the newest at the bottom, older lines scroll up out of view */
+  --lines: 4;
+  display: flex; flex-direction: column; justify-content: flex-end; height: calc(var(--lines) * 1.5em); overflow: hidden;
+  font: 600 1.15rem/1.5 var(--mono); letter-spacing: 0.03em;
+  text-shadow: 1px 1px 0 rgba(120, 60, 0, 0.25);
+}
+.lcd-flow { white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; }
+.lcd-text:empty + .lcd-cursor { margin-left: 0; }
+.lcd-cursor { display: inline-block; width: 0.6em; height: 1.1em; margin-left: 1px; vertical-align: -0.2em; background: #2a1603; opacity: 0.15; }
+.lcd-bezel.armed .lcd-cursor { opacity: 1; animation: blink 1.05s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0.12; } }
+.lcd-sub {
+  display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; padding-top: 6px;
+  border-top: 1px solid rgba(42, 22, 3, 0.35); font: 600 0.85rem var(--mono); letter-spacing: 0.08em;
+}
+.typein {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; resize: none; border: 0; padding: 0;
+  font-size: 16px;            /* at least 16px, or iOS Safari zooms the page when the display is tapped */
+  cursor: text; caret-color: transparent; color: transparent; background: transparent;
+}
+.lcd-bezel.armed { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 2px var(--focus), 0 0 22px rgba(240, 166, 64, 0.25); }
+
+.field textarea {
+  display: block; width: 100%; min-height: 168px; margin: 0; padding: 10px 12px; resize: vertical;
+  background: #0b0d0f; border: 1px solid #000; color: var(--text); font: 1rem/1.55 var(--mono);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.status-line { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 10px; min-height: 40px; }
+.status { margin: 0; font-size: 0.93rem; color: var(--text-dim); flex: 1; }
+.status.ok { color: var(--ok); }
+.status.err { color: var(--red-text); }
+.status.warn { color: var(--amber); }
+
+/* ------------------------------------------------------------ printed output: paper over a platen */
+.output-plate { display: flex; flex-direction: column; }
+.typewriter { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 14px; }
+.paper {
+  position: relative; flex: 1; min-height: 140px; max-height: 340px; overflow: auto; display: flex; flex-direction: column;
+  padding: 18px 22px 10px; background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05), transparent 6%, transparent 94%, rgba(0, 0, 0, 0.05)),
+    linear-gradient(180deg, #e9e4d8 0%, #f6f2e8 22%, #f8f5ec 100%);
+  color: #1c1b1d; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  scrollbar-color: #b9b2a2 transparent;
+}
+.paper:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.paper-text {
+  margin-top: auto; white-space: pre-wrap; word-break: normal; overflow-wrap: normal;
+  font: 600 1.08rem/1.75 "Courier New", Courier, "Nimbus Mono PS", "Liberation Mono", monospace; letter-spacing: 0.04em;
+  color: #1d1c20; text-shadow: 0 0 0.6px rgba(0, 0, 0, 0.55);
+}
+.paper-text:empty::before { content: "The printout appears here as you type."; font-weight: 400; color: #6d675b; letter-spacing: 0; font-family: var(--body); font-size: 0.92rem; }
+.paper-text.plain { overflow-wrap: anywhere; }
+.paper-text .fresh { color: #000; text-shadow: 0 0 1px rgba(0, 0, 0, 0.8); }
+.platen {
+  position: relative; height: 26px; margin: 0 -14px; border-radius: 13px;
+  background: linear-gradient(180deg, #4a4f55 0%, #15181b 45%, #050607 70%, #2a2e33 100%);
+  box-shadow: 0 2px 0 #000, inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.bail { position: absolute; left: 12%; right: 12%; top: -4px; height: 3px; background: linear-gradient(90deg, transparent, var(--red), transparent); opacity: 0.85; }
+.output-actions { margin-top: 14px; }
+
+/* ------------------------------------------------------------ about */
+.about { font-size: 0.97rem; line-height: 1.6; }
+.about-cols { display: grid; gap: 4px 48px; }
+.about p, .about li { max-width: 74ch; margin: 0 0 10px; }
+.about h3 { margin: 4px 0 6px; font-size: 1rem; letter-spacing: 0.04em; }
+.about code { font-family: var(--mono); color: var(--amber); }
+.about details { border-top: 1px solid #000; padding-top: 10px; margin-top: 6px; }
+.about summary { cursor: pointer; font-weight: 600; }
+.about ul { padding-left: 1.2em; }
+#testOut { font: 0.85rem/1.5 var(--mono); white-space: pre-wrap; margin: 10px 0 0; }
+#testOut .p { color: var(--ok); }
+#testOut .f { color: var(--red-text); }
+.footer { text-align: center; color: var(--text-dim); font-size: 0.85rem; }
+
+/* ------------------------------------------------------------ desktop: the console in bays */
+@media (min-width: 1200px) {
+  .console {
+    grid-template-columns: minmax(0, 1.75fr) minmax(360px, 1fr);
+    grid-template-areas: "head head" "bank key" "op output" "about about" "foot foot";
+  }
+  .masthead { grid-area: head; }
+  .bank-plate { grid-area: bank; }
+  .key-plate { grid-area: key; }
+  .op-plate { grid-area: op; }
+  .output-plate { grid-area: output; contain: size; }      /* the operator bay sets the row height; the paper scrolls */
+  .op-plate .lcd { padding: 16px 20px 12px; }
+  .paper { max-height: none; min-height: 0; height: 0; }   /* the paper fills the bay; the operator bay sets the height */
+  .op-plate { min-height: 100%; }
+  .about { grid-area: about; }
+  .footer { grid-area: foot; }
+  .keystrip { grid-template-columns: 1fr; }
+  .key-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .key-plate .note { grid-column: auto; }
+}
+@media (min-width: 1200px) and (max-height: 940px) { :root { --cell: 28px; } .console { gap: 12px; padding-top: 12px; } }
+@media (min-width: 1700px) { :root { --cell: 36px; } .console { padding-top: 24px; } }
+
+@media (min-width: 900px) { .about-cols { grid-template-columns: 1fr 1fr; } }
+
+/* ------------------------------------------------------------ smaller screens */
+@media (max-width: 1000px) {
+  .keystrip { grid-template-columns: 1fr; }
+  .masthead { grid-template-columns: auto 1fr; }
+  .readouts { grid-column: 1 / -1; flex-wrap: wrap; }
+}
+@media (max-width: 720px) {
+  :root { --cell: 26px; --chamfer: 10px; }
+  .lcd-main { font-size: 1rem; --lines: 5; }
+  .console { padding: 10px 8px 24px; gap: 10px; }
+  .plate { padding: 14px 12px 16px; }
+  .bank-wrap { grid-template-columns: 1fr; }
+  .endplate { writing-mode: horizontal-tb; transform: none; padding: 4px; }
+  .bank { gap: 3px; padding: 8px 4px; }
+  .rotor-top { flex-direction: column; gap: 3px; font-size: 0.7rem; }
+  .trace { font-size: 0.66rem; }
+  .keyfield input { font-size: 1rem; letter-spacing: 0; padding: 10px 8px; }
+  .masthead { padding: 12px; gap: 12px; }
+  .emblem { width: 42px; height: 42px; }
+  .readout { min-width: 0; flex: 1; }
+  .key-actions .btn { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .band.turn { animation: none; }
+  .pawl { transition: none; }
+  .lcd-bezel.armed .lcd-cursor { animation: none; }
+}
+
+@media (forced-colors: active) {
+  .lcd, .paper { forced-color-adjust: none; }
+  .plate, .btn { clip-path: none; border: 1px solid CanvasText; }
+  .btn:focus-visible { outline: 2px solid Highlight; }
+  .pawl.on, .band span.notch::after, .bank-legend i, .seg[aria-checked="true"] {
+    forced-color-adjust: none; background: Highlight; color: HighlightText;
+  }
+  .sound[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: 2px; }
+  .bank-legend i { background: Highlight !important; }
+  .window { border-color: Highlight; }
+  .tab[aria-selected="true"] { border-bottom-color: Highlight; }
+}
+</style>
+</head>
+<body>
+<main class="console">
+
+  <header class="plate masthead">
+    <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 2 60 16v32L32 62 4 48V16Z" fill="#0b0d0f" stroke="#59616a" stroke-width="2"/>
+      <path d="M32 9 54 20v24L32 55 10 44V20Z" fill="none" stroke="#e0262f" stroke-width="2.5"/>
+      <g stroke="#8a939c" stroke-width="2.4" stroke-linecap="square">
+        <path d="M32 13v7M32 44v7M14.5 22.5l6 3.5M43.5 38l6 3.5M14.5 41.5l6-3.5M43.5 26l6-3.5"/>
+      </g>
+      <circle cx="32" cy="32" r="10" fill="#1d2227" stroke="#8a939c" stroke-width="2"/>
+      <path d="M32 25 38 32 32 39 26 32Z" fill="#e0262f"/>
+    </svg>
+    <div class="title">
+      <h1>Imperial Rotor Cipher</h1>
+      <p>Model X-10 signals cipher. Ten rotors, one reflector, 94 keyboard symbols.</p>
+    </div>
+    <div class="readouts">
+      <div class="readout" role="img" aria-label="About 2 to the power 65.4 different keys">
+        <b aria-hidden="true">2<sup>65.4</sup></b><span aria-hidden="true">different keys</span>
+      </div>
+      <div class="readout"><b id="countOut">0000</b><span>symbols this message</span></div>
+      <button class="btn quiet sound" id="sound" type="button" aria-pressed="true">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path class="spk" d="M3 8h3l4-3v10l-4-3H3z"/><path class="wave" d="M13 7c1.2 1.6 1.2 4.4 0 6M15.5 5c2.2 2.8 2.2 7.2 0 10"/><path class="mute" d="M13 7l5 6M18 7l-5 6"/></svg>
+        Sound
+      </button>
+    </div>
+  </header>
+
+  <section class="plate bank-plate" aria-labelledby="h-bank">
+    <div class="plate-head">
+      <h2 id="h-bank">Rotor bank</h2>
+      <p class="designation">The signal enters at rotor 1, turns at the reflector and comes back.</p>
+    </div>
+    <div class="bank-wrap">
+      <div class="endplate" aria-hidden="true">Entry</div>
+      <div class="bank" id="bank"></div>
+      <div class="endplate reflector" aria-hidden="true">Reflector</div>
+    </div>
+    <div class="bank-legend" aria-hidden="true">
+      <span><i class="lg-notch"></i>Turnover notch</span>
+      <span><i class="lg-pawl"></i>Stepped on the last key</span>
+      <span><i class="lg-fwd"></i>Signal in → out</span>
+      <span><i class="lg-ret"></i>Signal back ← in</span>
+    </div>
+  </section>
+
+  <section class="plate key-plate" aria-labelledby="h-key">
+    <div class="plate-head">
+      <h2 id="h-key">Key</h2>
+      <p class="designation">Ten window settings, rotor 1 first.</p>
+    </div>
+    <div class="keystrip">
+      <div class="keyfield">
+        <div class="label-row"><label for="key">Key: ten numbers from 00 to 93</label><button class="btn quiet small" id="copyKey" type="button">Copy key</button></div>
+        <input id="key" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+               aria-describedby="keyNote" placeholder="07-42-88-13-00-93-61-30-54-19">
+      </div>
+      <div class="key-actions">
+        <button class="btn" id="randomKey" type="button">Random key</button>
+        <button class="btn" id="resetRotors" type="button">Reset rotors to key</button>
+      </div>
+      <div class="now">
+        <p class="readout-label" id="nowLabel">Windows now</p>
+        <output id="nowOut" aria-labelledby="nowLabel"></output>
+      </div>
+      <p class="note" id="keyNote"><strong>Use a new key for every message.</strong> Two messages sent with the same key can be read against each other. Give the key to the other person by a separate route, never with the message.</p>
+    </div>
+  </section>
+
+  <section class="plate op-plate" aria-labelledby="h-op">
+    <div class="plate-head op-head">
+      <h2 id="h-op">Operator</h2>
+      <div class="tabs" role="tablist" aria-label="How to work">
+        <button class="tab" role="tab" id="tab-live" aria-controls="panel-live" aria-selected="true">Type live</button>
+        <button class="tab" role="tab" id="tab-batch" aria-controls="panel-batch" aria-selected="false" tabindex="-1">Paste a message</button>
+      </div>
+    </div>
+
+    <div id="panel-live" role="tabpanel" aria-labelledby="tab-live" class="livepad">
+      <div class="live-bar">
+        <div class="switch" role="radiogroup" aria-label="What you are doing">
+          <button type="button" role="radio" class="seg" id="dirEnc" aria-checked="true">Enciphering</button>
+          <button type="button" role="radio" class="seg" id="dirDec" aria-checked="false" tabindex="-1">Deciphering</button>
+        </div>
+        <p class="live-hint" id="liveHint">Click the display and type. <kbd>Backspace</kbd> takes back the last key; pasting types a whole message.</p>
+      </div>
+      <div class="lcd-bezel" id="lcdBezel">
+        <div class="lcd" aria-hidden="true">
+          <div class="lcd-main"><div class="lcd-flow"><span class="lcd-text" id="lcdText"></span><span class="lcd-cursor"></span></div></div>
+          <div class="lcd-sub"><span id="lcdMode">ENCIPHER</span><span id="lcdLast">READY</span><span id="lcdCount">0000</span></div>
+        </div>
+        <textarea id="typein" class="typein" rows="1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                  aria-label="Type here. Each key you type turns the rotors and prints one symbol." aria-describedby="liveHint"></textarea>
+      </div>
+    </div>
+
+    <div id="panel-batch" role="tabpanel" aria-labelledby="tab-batch" hidden>
+      <div class="field">
+        <label for="input"><span>Message or ciphertext</span><span id="inCount">0 characters</span></label>
+        <textarea id="input" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste plain text to encipher, or received ciphertext groups to decipher."></textarea>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="encipher" type="button">Encipher</button>
+        <button class="btn" id="decipher" type="button">Decipher</button>
+        <button class="btn quiet" id="clearBatch" type="button">Clear</button>
+      </div>
+    </div>
+    <div class="status-line">
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <button class="btn quiet small" id="undo" type="button" hidden>Undo</button>
+    </div>
+    <p class="visually-hidden" id="announce" aria-live="polite"></p>
+  </section>
+
+  <section class="plate output-plate" aria-labelledby="h-output">
+    <div class="plate-head">
+      <h2 id="h-output">Printed output</h2>
+      <p class="designation" id="outNote">Ciphertext: send this</p>
+    </div>
+    <div class="typewriter">
+      <div class="paper" id="paper" tabindex="0" role="region" aria-labelledby="h-output outNote">
+        <div class="paper-text" id="paperText"></div>
+      </div>
+      <div class="platen" aria-hidden="true"><span class="bail"></span></div>
+    </div>
+    <div class="row output-actions">
+      <button class="btn" id="copyOut" type="button">Copy ciphertext</button>
+      <button class="btn quiet" id="download" type="button">Download .txt</button>
+      <button class="btn quiet" id="newSheet" type="button">New sheet</button>
+    </div>
+  </section>
+
+  <section class="plate about" aria-labelledby="h-about">
+    <div class="plate-head"><h2 id="h-about">About the machine</h2><p class="designation">Free software under the GNU GPL v3</p></div>
+    <div class="about-cols">
+      <div>
+        <h3>How it works</h3>
+        <p>The X-10 is a digital model of an electromechanical rotor machine in the Enigma family. Every key press turns rotor 1. When a rotor reaches its turnover notch, a pawl pushes the next rotor along, and the notched rotor with it: Enigma’s double step. The signal runs through all ten rotors, is turned back by the reflector, and returns through the rotors to print one symbol.</p>
+        <p>Because the reflector sends the signal back along the same rotors, the machine undoes itself: set the same key and type the ciphertext to read the message. It also means no symbol ever enciphers to itself.</p>
+      </div>
+      <div>
+        <h3>How strong is it?</h3>
+        <p>The key is the ten window settings. Each has 94 positions, giving 94<sup>10</sup> ≈ 5.4 × 10<sup>19</sup> settings. The double step makes some settings act exactly like others, which leaves about 2<sup>65.4</sup> different keys, above 64 bits. Nine rotors would give only 2<sup>59</sup>.</p>
+        <p>That counts keys; it is not the work needed to break a message. Rotor 2 turns once every 94 symbols and rotor 3 roughly once every 8,800, so in a short message the slow rotors usually stand still or turn only once or twice. Between those moments they act as one fixed scrambler, and someone who knows or guesses part of a message has only about 8,800 settings to try. Enigma fell to the same kind of weakness. Use the X-10 for learning, puzzles and fun, not for real secrets.</p>
+        <p>Send ciphertext as a file, an email or a code block: chat apps may treat <code>*</code>, <code>_</code>, <code>~</code> and <code>`</code> as formatting and drop them.</p>
+      </div>
+    </div>
+    <details>
+      <summary>Wirings, rules and self-test</summary>
+      <ul>
+        <li>The alphabet is the 94 visible keyboard characters, <code>!</code> to <code>~</code>. Spaces and line breaks are sent as <code>~</code>, and <code>~</code> reads back as a space, so a typed <code>~</code> also comes back as a space. Other characters, such as tabs, accented letters and emoji, are refused.</li>
+        <li>The rotor wirings, turnover notches and reflector are fixed and published. They come from the public seed <code>IMPERIAL-ROTOR-CIPHER/parts/v1</code>, and the script in the project’s <code>tools</code> folder rebuilds them. Rotor 10’s notch has no effect, since no pawl sits beyond it.</li>
+        <li>Ciphertext is printed in groups of five. Spacing and line breaks are ignored when deciphering. One wrong symbol spoils only that symbol, but a missing or extra symbol garbles everything after it. Curly quotes, dashes and the ellipsis are changed to their plain keyboard forms.</li>
+      </ul>
+      <button class="btn" id="selfTest" type="button">Run self-test</button>
+      <pre id="testOut"></pre>
+    </details>
+  </section>
+
+  <footer class="footer">Imperial Rotor Cipher is free software under the GNU GPL v3. It runs entirely in this page; nothing you type is sent anywhere.</footer>
+</main>
+
+<script id="irc-core">
+'use strict';
+/*
+ * Imperial Rotor Cipher: cipher core (no DOM access; also loaded by the Node tests).
+ * Copyright (C) 2026 Antonio. SPDX-License-Identifier: GPL-3.0-or-later; see LICENSE.
+ *
+ * A ten-rotor Enigma-style machine over the 94 visible keyboard characters (! to ~).
+ * Space is written as ~ before enciphering and restored after deciphering.
+ * The key is the ten rotor window settings: 94^10 ~ 2^65.55 settings. Enigma's double step
+ * makes about 8% of them behave like another setting, leaving about 2^65.4 distinct keys.
+ */
+const IRC = (() => {
+  const N = 94;                                   // alphabet size: char codes 33..126
+  const ROTOR_COUNT = 10;
+  const ALPHABET = Array.from({ length: N }, (_, i) => String.fromCharCode(33 + i)).join('');
+  const SPACE_SYMBOL = '~';
+  const KEY_BITS = ROTOR_COUNT * Math.log2(N);    // 65.55 bits of window settings
+  const DISTINCT_KEY_BITS = 65.42;                // after removing double-step duplicates (Monte Carlo, 200k keys)
+
+  // Published parts, generated by tools/gen-parts.js from the seed below.
+  const PARTS_SEED = 'IMPERIAL-ROTOR-CIPHER/parts/v1';
+  const ROTOR_SPECS = Object.freeze([
+    ["n='!#*M^-f|L7BEu/W56XYv>JPqwrpm]CK3teHD9@ZFy`,s_()c%\\U~+aokz<bSi[d}&:?QTV$R0IgNxlO8;Aj4{\"1.h2G", 'Y'],
+    ["CRk$7M;<5/x`deg!O9sGr>p]&4Y-6yvct#{VBbo)mQSzXT8=N0^F3~n|(}\\h2Pl\"Ei%'1[,WfDqaj.@:K?UAI+*_wJHLZu", ';'],
+    ["TJ8v!$W_FUQme4;nPE,S%NqH?gs5<}6&Xi#B]b.'1px`2-u7\\*y3wC0(>[+h@Io|:l^z{cR/GVkAYO\"rta~LdK9M)fDZ=j", '['],
+    ["^q8`})l1Bm.J5g%U;iL|dxWHVF$SO6I:<E[DY_z=spN,h\"\\2n4fv0]#o7r&PR~ce*@3AjTa{yZ'b-+w>K9tG(?/CkuMXQ!", 'q'],
+    ["}@iml~B\\=t>YQn[!XxRgWvA7*,<_8sVjEK/Sk:`h-cp0'%wz#D^TLrdqUP;]Cefu)&bZ.M{J|G34o?1+I6F\"ayN$(OH592", 'H'],
+    ["YN*q-K.uU^Mfb!`S2akOT_/yz1|Q%F?+e~<r5)A>\\dJX#8j@i{Llh[wsZI$HGB]3PE:0V7Wg;v=t'x\"&9mR(6o}cpD,nC4", 'k'],
+    ["Jx&T=:E[yok,l<2^Q1an_5e3|NC~#6Bpbfg'%j{+t>Ov$GSF`W9w4I*ZLqr\\Dz7?A(cd}H@!0;su)h/\"XRiV8-UM].PKmY", 'L'],
+    ["RV]hz/Kn>_me}<vMfyw6|T\\^)OYAL98#@40:'ZF`r\"!SCgE3WQ{~25+$pcl?Hdo1Ps[UN.u-aIx;=B%,DJXk*jt(bq&G7i", 'M'],
+    ["I%rjgQ9d)[.wHlfPX'U*|#,T6~^!0eG;\">cphBm]JY25\\@zL?E(/+KA1_W<8{s$=:7OV3xZStRvao&`ubD-FynCN}i4qkM", 'l'],
+    ["%M$OJUSt6wWyX\"xi+D|)fu[<H5c}17.\\=3?b0v#eYa:Q&LRA@gs9^{!-nNkl~T](_mp8BFE`VI*/4zC2'>qjZrGdP,oK;h", 'H'],
+  ]);
+  const REFLECTOR_SPEC = "B5$#6[]*<(u4_lTJEvH,\"%I98{A)kStn;!MF1Df370LKCjYyos>/b|ZzOW&c'a-g^U\\~wG`ihN=.x@Qqp}R?+2emPX:Vrd";
+
+  const idx = (ch) => ch.charCodeAt(0) - 33;      // assumes ch is in ALPHABET
+  const sym = (i) => ALPHABET[i];
+  const inAlphabet = (code) => code >= 33 && code <= 126;
+  const mod = (n) => ((n % N) + N) % N;
+
+  const ROTORS = ROTOR_SPECS.map(([wiring, notch], r) => {
+    const fwd = Uint8Array.from(wiring, idx);
+    const back = new Uint8Array(N);
+    fwd.forEach((v, i) => { back[v] = i; });
+    return Object.freeze({ number: r + 1, wiring, fwd, back, notch: idx(notch) });
+  });
+  const REFLECTOR = Uint8Array.from(REFLECTOR_SPEC, idx);
+
+  // ---------------------------------------------------------------- keys
+  const validPositions = (p) => Array.isArray(p) && p.length === ROTOR_COUNT &&
+    p.every((v) => Number.isInteger(v) && v >= 0 && v < N);
+
+  /** Key = ten window positions, each 0..93. Written as two-digit numbers, e.g. "07-42-88-…". */
+  function formatKey(positions) {
+    if (!validPositions(positions)) throw new Error(`A key is ${ROTOR_COUNT} settings from 0 to ${N - 1}.`);
+    return positions.map((p) => String(p).padStart(2, '0')).join('-');
+  }
+
+  /**
+   * Read a key typed by a person. Numbers may be separated by spaces or - , / : ; or the key may be
+   * written as 20 digits with no separators (two per rotor).
+   * Anything else (letters, decimal points, minus signs, other digits) is refused rather than
+   * guessed at, so a typo can never quietly become a different key.
+   */
+  function parseKey(text) {
+    const s = String(text).trim();
+    if (/^[0-9]{20}$/.test(s)) return parseKey(s.match(/../g).join('-'));   // 20 digits typed on a phone keypad
+    const bad = s.match(/[^0-9\s\-,/:;]/u);
+    if (bad) {
+      throw new Error(`The key may contain only the digits 0–9 and separators; “${bad[0]}” at character ` +
+        `${bad.index + 1} is not allowed.`);
+    }
+    const parts = s.split(/[\s\-,/:;]+/).filter(Boolean);
+    if (parts.length !== ROTOR_COUNT) {
+      throw new Error(`A key has ${ROTOR_COUNT} numbers (one per rotor, 00–${N - 1}); this one has ${parts.length}.`);
+    }
+    const badPart = parts.findIndex((t) => t.length > 3 || Number(t) >= N);
+    if (badPart >= 0) throw new Error(`Rotor ${badPart + 1} is set to ${parts[badPart]}; each setting must be 00–${N - 1}.`);
+    return parts.map(Number);
+  }
+
+  /** Uniform random key from the browser's secure generator (rejection sampling, no bias). */
+  function randomKey() {
+    const out = [];
+    const limit = 256 - (256 % N);                // 188
+    const buf = new Uint8Array(32);
+    while (out.length < ROTOR_COUNT) {
+      crypto.getRandomValues(buf);
+      for (const b of buf) if (b < limit && out.length < ROTOR_COUNT) out.push(b % N);
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------- machine
+  class Machine {
+    /** @param {number[]} positions ten window settings, 0..93 (rotor 1 = fast rotor) */
+    constructor(positions) {
+      if (!validPositions(positions)) throw new Error(`A machine needs ${ROTOR_COUNT} rotor settings from 0 to ${N - 1}.`);
+      this.start = positions.slice();
+      this.reset();
+    }
+
+    reset() {
+      this.pos = this.start.slice();
+      this.count = 0;
+      this.lastStepped = new Array(ROTOR_COUNT).fill(false);
+      this.lastPawls = new Array(ROTOR_COUNT - 1).fill(false);
+    }
+
+    /**
+     * Enigma pawl stepping, generalized to ten rotors. Before each character:
+     *  - rotor 1 always steps;
+     *  - for i = 1..9, if rotor i shows its notch, the pawl between rotors i and i+1 engages
+     *    and pushes both of them (so rotor i+1 steps, and a notched middle rotor steps a second
+     *    time in a row: Enigma's "double step"). Rotor 10 has no pawl to its left, so its notch
+     *    has no effect.
+     * All decisions use the positions from before this step. Returns copies of which rotors
+     * moved and which of the nine pawls engaged.
+     */
+    step() {
+      const stepped = new Array(ROTOR_COUNT).fill(false);
+      const pawls = new Array(ROTOR_COUNT - 1).fill(false);
+      stepped[0] = true;
+      for (let i = 0; i < ROTOR_COUNT - 1; i++) {
+        if (this.pos[i] === ROTORS[i].notch) { pawls[i] = true; stepped[i] = true; stepped[i + 1] = true; }
+      }
+      for (let i = 0; i < ROTOR_COUNT; i++) if (stepped[i]) this.pos[i] = (this.pos[i] + 1) % N;
+      this.count++;
+      this.lastStepped = stepped;
+      this.lastPawls = pawls;
+      return { stepped: stepped.slice(), pawls: pawls.slice() };
+    }
+
+    /** Signal path for symbol index x at the current positions (no stepping): 22 values. */
+    trace(x) {
+      const path = [x];
+      let v = x;
+      for (let i = 0; i < ROTOR_COUNT; i++) {
+        const p = this.pos[i];
+        v = mod(ROTORS[i].fwd[mod(v + p)] - p);
+        path.push(v);
+      }
+      v = REFLECTOR[v];
+      path.push(v);
+      for (let i = ROTOR_COUNT - 1; i >= 0; i--) {
+        const p = this.pos[i];
+        v = mod(ROTORS[i].back[mod(v + p)] - p);
+        path.push(v);
+      }
+      return { out: v, path };
+    }
+
+    /** One key press with everything the display needs: output, signal path, rotors moved, pawls. */
+    pressDetailed(x) {
+      if (!Number.isInteger(x) || x < 0 || x >= N) throw new Error(`Symbol index must be 0–${N - 1}.`);
+      const { stepped, pawls } = this.step();
+      const { out, path } = this.trace(x);
+      return { out, path, stepped, pawls };
+    }
+
+    /** Step, then send one symbol index through. Same call enciphers and deciphers. */
+    pressIndex(x) {
+      if (!Number.isInteger(x) || x < 0 || x >= N) throw new Error(`Symbol index must be 0–${N - 1}.`);
+      this.step();
+      let v = x;                                   // same math as trace(), without building a path
+      for (let i = 0; i < ROTOR_COUNT; i++) { const p = this.pos[i]; v = mod(ROTORS[i].fwd[mod(v + p)] - p); }
+      v = REFLECTOR[v];
+      for (let i = ROTOR_COUNT - 1; i >= 0; i--) { const p = this.pos[i]; v = mod(ROTORS[i].back[mod(v + p)] - p); }
+      return v;
+    }
+
+    /** Press one keyboard character (space and line breaks count as ~). Returns the lit symbol. */
+    press(ch) {
+      const x = toIndex(ch);
+      if (x < 0) throw new Error(`${typeof ch === 'string' && ch ? describeChar(ch) : 'That'} is not on the machine’s keyboard.`);
+      return sym(this.pressIndex(x));
+    }
+  }
+
+  // ---------------------------------------------------------------- text
+  // Every Unicode space separator counts as a space; Unicode line separators count as line breaks.
+  const SPACE_LIKE = /^\p{Zs}$/u;
+  const BREAK_LIKE = /^[\u0085\u2028\u2029]$/u;
+  const INVISIBLE_NAMES = { '\t': 'a tab', '\u200b': 'a zero-width space', '\ufeff': 'a byte-order mark',
+    '\u00ad': 'a soft hyphen', '\u200c': 'a zero-width non-joiner', '\u200d': 'a zero-width joiner' };
+
+  /** Name a refused character so the person can find it, even when it is invisible. */
+  function describeChar(ch) {
+    const cp = ch.codePointAt(0);
+    const code = `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`;
+    if (INVISIBLE_NAMES[ch]) return `${INVISIBLE_NAMES[ch]} (${code})`;
+    if (/^[\p{Cc}\p{Cf}\p{Cs}]$/u.test(ch)) return `an invisible control character (${code})`;
+    return `“${ch}” (${code})`;
+  }
+
+  /**
+   * The machine symbol for one typed character, as an index 0..93, or -1 if it is not on the
+   * keyboard. Spaces (any Unicode space) and line breaks become ~. Live typing and pasted
+   * messages both use this, so they always agree.
+   */
+  function toIndex(ch) {
+    if (typeof ch !== 'string' || ch.length === 0) return -1;
+    if (ch === ' ' || ch === '\n' || ch === '\r' || SPACE_LIKE.test(ch) || BREAK_LIKE.test(ch)) return N - 1;
+    const c = ch.codePointAt(0);
+    return ch.length === 1 && inAlphabet(c) ? c - 33 : -1;
+  }
+
+  /**
+   * Plaintext -> machine symbols. Curly quotes, dashes and the ellipsis become their plain
+   * keyboard forms. Spaces become "~"; line breaks (CRLF, CR or LF) become "~" too, since the
+   * alphabet has no line break. Anything else outside ! .. ~ is refused.
+   */
+  // Typographic characters that word processors and phones substitute for plain keyboard ones.
+  const FOLD = { '\u2018': "'", '\u2019': "'", '\u201A': "'", '\u201B': "'", '\u201C': '"', '\u201D': '"',
+    '\u201E': '"', '\u2032': "'", '\u2033': '"', '\u2013': '-', '\u2014': '-', '\u2212': '-', '\u2026': '...' };
+  const FOLD_RE = /[\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u2032\u2033\u2013\u2014\u2212\u2026]/g;
+
+  function preparePlaintext(text) {
+    let lineBreaks = 0, spaces = 0, folded = 0;
+    const unified = String(text).replace(FOLD_RE, (c) => { folded++; return FOLD[c]; }).replace(/\r\n?|\n|[\u0085\u2028\u2029]/g, () => { lineBreaks++; return '\n'; });
+    const bad = [];
+    let out = '';
+    let pos = 0;
+    for (const ch of unified) {               // iterates by code point, so emoji count once
+      pos++;
+      const x = toIndex(ch);
+      if (x >= 0) {
+        if (ch !== '\n' && ch !== SPACE_SYMBOL && x === N - 1) spaces++;
+        out += ALPHABET[x];
+        continue;
+      }
+      if (bad.length < 5) bad.push(`${describeChar(ch)} at character ${pos}`);
+      else if (bad.length === 5) bad.push('…');
+    }
+    if (bad.length) {
+      const err = new Error(`These characters are not on the machine’s keyboard: ${bad.join(', ')}. ` +
+        'Use plain keyboard characters (letters, digits, punctuation and spaces).');
+      err.code = 'BAD_CHAR';
+      throw err;
+    }
+    return { symbols: out, spaces, lineBreaks, folded };
+  }
+
+  /** Ciphertext -> machine symbols. All whitespace (the group spacing) is ignored. */
+  function prepareCiphertext(text) {
+    const clean = String(text).replace(/\s+/g, '');
+    const bad = [];
+    let pos = 0;
+    for (const ch of clean) {
+      pos++;
+      if (!(ch.length === 1 && inAlphabet(ch.charCodeAt(0)))) {
+        if (bad.length < 5) bad.push(`${describeChar(ch)} at symbol ${pos}`);
+        else if (bad.length === 5) bad.push('…');
+      }
+    }
+    if (bad.length) {
+      const err = new Error(`The ciphertext contains characters the machine never writes: ${bad.join(', ')}.`);
+      err.code = 'BAD_CHAR';
+      throw err;
+    }
+    return clean;
+  }
+
+  /** Five-symbol groups, ten groups to a line, in the style of a signals message. */
+  function groupCipher(raw, groupSize = 5, groupsPerLine = 10) {
+    const groups = raw.match(new RegExp(`.{1,${groupSize}}`, 'g')) || [];
+    const lines = [];
+    for (let i = 0; i < groups.length; i += groupsPerLine) lines.push(groups.slice(i, i + groupsPerLine).join(' '));
+    return lines.join('\n');
+  }
+
+  function run(positions, symbols) {
+    const m = new Machine(positions);
+    let out = '';
+    for (let i = 0; i < symbols.length; i++) out += sym(m.pressIndex(symbols.charCodeAt(i) - 33));
+    return { out, machine: m };
+  }
+
+  /** Encipher plaintext with a key (array of ten positions). */
+  function encrypt(positions, plaintext) {
+    const prep = preparePlaintext(plaintext);
+    const { out, machine } = run(positions, prep.symbols);
+    return { raw: out, grouped: groupCipher(out), spaces: prep.spaces, lineBreaks: prep.lineBreaks, machine };
+  }
+
+  /** Decipher ciphertext (grouping and line breaks ignored); "~" comes back as a space. */
+  function decrypt(positions, ciphertext) {
+    const symbols = prepareCiphertext(ciphertext);
+    const { out, machine } = run(positions, symbols);
+    return { raw: out, text: out.split(SPACE_SYMBOL).join(' '), machine };
+  }
+
+  // ---------------------------------------------------------------- self-test
+  const KAT = {
+    key: '07-42-88-13-00-93-61-30-54-19',
+    plain: 'Attack at dawn, 0600 hours! (Grid ref: 51/47.)',
+    cipher: "xsu',0?V@?\"UMEY2`h)I:*Qc|HVajs/Hr,Q:vTCJDWFR-g",
+  };
+
+  function selfTest() {
+    const results = [];
+    const check = (name, pass, detail = '') => results.push({ name, pass: !!pass, detail });
+
+    check('Alphabet is the 94 visible keyboard characters ! to ~',
+      ALPHABET.length === 94 && ALPHABET[0] === '!' && ALPHABET[93] === '~' && !ALPHABET.includes(' '));
+    check('Each rotor wiring uses every symbol exactly once',
+      ROTORS.every((r) => new Set(r.wiring).size === N && r.wiring.length === N));
+    check('Each rotor’s backward wiring undoes its forward wiring',
+      ROTORS.every((r) => r.fwd.every((v, i) => r.back[v] === i)));
+    check('Reflector pairs all 94 symbols, none with itself',
+      REFLECTOR.every((v, i) => REFLECTOR[v] === i && v !== i));
+    check('94^10 ≈ 2^65.55 window settings; about 2^65.4 distinct keys after double-step duplicates, above 64 bits',
+      KEY_BITS > 64 && Math.abs(KEY_BITS - 65.55) < 0.01 && DISTINCT_KEY_BITS > 64, `${KEY_BITS.toFixed(2)} bits`);
+
+    // Involution and no fixed point at many random machine states.
+    let invol = true, fixed = false;
+    for (let t = 0; t < 200; t++) {
+      const m = new Machine(randomKey());
+      for (let x = 0; x < N; x++) {
+        const y = m.trace(x).out;
+        if (m.trace(y).out !== x) invol = false;
+        if (y === x) fixed = true;
+      }
+    }
+    check('Same setting deciphers what it enciphers (200 random settings × 94 symbols)', invol);
+    check('No symbol ever enciphers to itself (reflector property)', !fixed);
+
+    // Stepping: rotor 1 every press; double step reproduced exactly.
+    const k = new Array(ROTOR_COUNT).fill(0);
+    k[0] = mod(ROTORS[0].notch - 1); k[1] = mod(ROTORS[1].notch - 1);
+    const m = new Machine(k);
+    const seen = [];
+    for (let i = 0; i < 3; i++) { m.step(); seen.push(m.pos.slice(0, 3)); }
+    const n0 = ROTORS[0].notch, n1 = ROTORS[1].notch;
+    const want = [[n0, mod(n1 - 1), 0], [mod(n0 + 1), n1, 0], [mod(n0 + 2), mod(n1 + 1), 1]];
+    check('Odometer stepping with Enigma’s double step (rotors 4–10 stay still)',
+      JSON.stringify(seen) === JSON.stringify(want) && m.pos.slice(3).every((p) => p === 0), JSON.stringify(seen));
+
+    const key = parseKey(KAT.key);
+    const enc = encrypt(key, KAT.plain);
+    const dec = decrypt(key, enc.grouped);
+    check('Encipher → decipher round trip, spaces restored', dec.text === KAT.plain);
+    check('Ciphertext uses only visible characters, grouped in fives',
+      /^[!-~]+$/.test(enc.raw) && enc.grouped.split(/\s+/).every((g, i, a) => g.length === 5 || i === a.length - 1));
+    check('Known-answer vector matches', enc.raw === KAT.cipher, enc.raw === KAT.cipher ? '' : `got ${enc.raw}`);
+    let rejected = false;
+    try { encrypt(key, 'tab\there'); } catch (e) { rejected = e.code === 'BAD_CHAR'; }
+    check('Characters off the keyboard are refused', rejected);
+    check('Key text round trips', formatKey(parseKey(KAT.key)) === KAT.key);
+    return results;
+  }
+
+  return Object.freeze({
+    N, ROTOR_COUNT, ALPHABET, SPACE_SYMBOL, KEY_BITS, DISTINCT_KEY_BITS, PARTS_SEED, ROTORS, REFLECTOR,
+    formatKey, parseKey, randomKey, Machine, toIndex, describeChar, preparePlaintext, prepareCiphertext, groupCipher,
+    encrypt, decrypt, KAT, selfTest,
+  });
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = IRC;
+</script>
+<script>
+'use strict';
+/* Imperial Rotor Cipher: user interface. Copyright (C) 2026 Antonio. SPDX-License-Identifier: GPL-3.0-or-later */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const { N, ROTOR_COUNT, ALPHABET, ROTORS } = IRC;
+  const MAX_BATCH = 1000000;                           // characters per message in paste mode
+
+  const ui = {
+    bank: $('bank'), key: $('key'), randomKey: $('randomKey'), resetRotors: $('resetRotors'), sound: $('sound'),
+    tabLive: $('tab-live'), tabBatch: $('tab-batch'), panelLive: $('panel-live'), panelBatch: $('panel-batch'),
+    dirEnc: $('dirEnc'), dirDec: $('dirDec'), typein: $('typein'), bezel: $('lcdBezel'),
+    lcdText: $('lcdText'), lcdMode: $('lcdMode'), lcdLast: $('lcdLast'), lcdCount: $('lcdCount'),
+    paper: $('paper'), paperText: $('paperText'), newSheet: $('newSheet'),
+    input: $('input'), inCount: $('inCount'), encipher: $('encipher'), decipher: $('decipher'), clearBatch: $('clearBatch'),
+    status: $('status'), undo: $('undo'), announce: $('announce'), count: $('countOut'),
+    outNote: $('outNote'), copyOut: $('copyOut'), download: $('download'),
+    selfTest: $('selfTest'), testOut: $('testOut'), copyKey: $('copyKey'), nowOut: $('nowOut'),
+  };
+
+  // ---------------------------------------------------------------- state
+  let key = IRC.randomKey();
+  let machine = new IRC.Machine(key);
+  let keyed = '';                 // machine symbols keyed this message
+  let printed = '';                 // machine symbols printed this message
+  let lastPath = null;            // signal path of the last key press
+  let mode = 'live';
+  let lastPair = null;            // [keyed, printed] for the LCD's last-key readout
+  let direction = 'enc';          // 'enc': keyed = plain, printed = ciphertext; 'dec': the other way round
+  let keyInvalid = false;
+  const usedKeys = new Map();     // key text -> message enciphered with it (this session only)
+
+  const sym = (i) => ALPHABET[i];
+  const pad = (n, w) => String(n).padStart(w, '0');
+  const readable = (s) => s.split('~').join(' ');
+
+  let undoAction = null;
+  let undoIsUndo = false;         // the status button is Undo (not Finish now)
+  /** Status line, optionally with one action button (Undo by default, or e.g. "Finish now"). */
+  function setStatus(msg, kind = '', undo = null, label = 'Undo') {
+    ui.status.textContent = msg;
+    ui.status.className = `status ${kind}`;
+    if (!undo && document.activeElement === ui.undo) ui.paper.focus();   // never strand keyboard focus on a vanishing button
+    undoAction = undo;
+    undoIsUndo = !!undo && label === 'Undo';
+    ui.undo.hidden = !undo;
+    if (ui.undo.textContent !== label) ui.undo.textContent = label;
+  }
+  ui.undo.addEventListener('click', () => { if (undoAction) undoAction(); });
+
+  // ---------------------------------------------------------------- sound (synthesised, no files)
+  let audio = null;
+  let soundOn = true;
+  try { soundOn = localStorage.getItem('irc-sound') !== 'off'; } catch { /* storage blocked */ }
+
+  function click(delay = 0, weight = 1) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state !== 'running') audio.resume().catch(() => {});
+      const t = audio.currentTime + delay;
+      const len = Math.floor(audio.sampleRate * 0.03);
+      const buf = audio.createBuffer(1, len, audio.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+      const noise = audio.createBufferSource();
+      noise.buffer = buf;
+      const band = audio.createBiquadFilter();
+      band.type = 'bandpass'; band.frequency.value = 2400; band.Q.value = 1.2;
+      const g = audio.createGain();
+      g.gain.value = 0.22 * weight;
+      noise.connect(band).connect(g).connect(audio.destination);
+      noise.start(t);
+      const thump = audio.createOscillator();
+      const tg = audio.createGain();
+      thump.frequency.setValueAtTime(140, t);
+      thump.frequency.exponentialRampToValueAtTime(60, t + 0.05);
+      tg.gain.setValueAtTime(0.18 * weight, t);
+      tg.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      thump.connect(tg).connect(audio.destination);
+      thump.start(t); thump.stop(t + 0.08);
+    } catch { /* audio unavailable: stay silent */ }
+  }
+  // Safari starts audio only inside a user gesture, so wake the sound on the first press or tap.
+  const wakeAudio = () => {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state !== 'running') audio.resume().catch(() => {});
+    } catch { /* no audio */ }
+  };
+  document.addEventListener('pointerdown', wakeAudio, { capture: true });
+  document.addEventListener('keydown', wakeAudio, { capture: true });
+  const renderSound = () => ui.sound.setAttribute('aria-pressed', String(soundOn));
+  ui.sound.addEventListener('click', () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem('irc-sound', soundOn ? 'on' : 'off'); } catch { /* ignore */ }
+    renderSound();
+    if (soundOn) click();
+  });
+
+  // ---------------------------------------------------------------- rotor bank
+  const BAND_SPAN = 2;                                 // symbols shown either side of the window
+  const rotorEls = ROTORS.map((r, i) => {
+    const col = document.createElement('div');
+    col.className = 'rotor';
+    col.innerHTML = `
+      <div class="rotor-top"><span>R${i + 1}</span><span class="pawl" title="Stepped on the last key"></span></div>
+      <div class="drum" tabindex="0" role="spinbutton" aria-valuemin="0" aria-valuemax="${N - 1}">
+        <div class="band"></div><div class="window"></div>
+      </div>
+      <div class="setting">
+        <button type="button" tabindex="-1" data-d="-1" aria-label="Rotor ${i + 1}: key setting down"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8"/></svg></button>
+        <span class="num"></span>
+        <button type="button" tabindex="-1" data-d="1" aria-label="Rotor ${i + 1}: key setting up"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8M6 2v8"/></svg></button>
+      </div>
+      <div class="trace" aria-hidden="true"><span class="fwd">&nbsp;</span><span class="ret">&nbsp;</span></div>`;
+    ui.bank.appendChild(col);
+    const el = {
+      drum: col.querySelector('.drum'), band: col.querySelector('.band'), num: col.querySelector('.num'),
+      pawl: col.querySelector('.pawl'), fwd: col.querySelector('.fwd'), ret: col.querySelector('.ret'),
+    };
+    for (let k = -BAND_SPAN; k <= BAND_SPAN; k++) el.band.appendChild(document.createElement('span'));
+    col.querySelectorAll('.setting button').forEach((b) => b.addEventListener('click', () => setRotor(i, key[i] + Number(b.dataset.d))));
+    el.drum.addEventListener('keydown', (e) => {
+      const to = { ArrowUp: key[i] + 1, ArrowRight: key[i] + 1, ArrowDown: key[i] - 1, ArrowLeft: key[i] - 1,
+        PageUp: key[i] + 10, PageDown: key[i] - 10, Home: 0, End: N - 1 }[e.key];
+      if (to !== undefined) { e.preventDefault(); e.stopPropagation(); setRotor(i, to); }
+    });
+    return el;
+  });
+
+  function renderBank(turned = null) {
+    rotorEls.forEach((el, i) => {
+      const p = machine.pos[i];
+      const spans = el.band.children;
+      for (let k = -BAND_SPAN; k <= BAND_SPAN; k++) {
+        const v = (p + k + N) % N;
+        spans[k + BAND_SPAN].textContent = sym(v);
+        spans[k + BAND_SPAN].classList.toggle('notch', i < ROTOR_COUNT - 1 && v === ROTORS[i].notch);  // rotor 10's notch never acts
+      }
+      el.num.textContent = pad(key[i], 2);
+      el.drum.setAttribute('aria-label', `Rotor ${i + 1} key setting`);
+      el.drum.setAttribute('aria-valuenow', String(key[i]));
+      el.drum.setAttribute('aria-valuetext', `${pad(key[i], 2)}, symbol ${sym(key[i])}` +
+        (p !== key[i] ? `; the window now shows ${pad(p, 2)}` : ''));
+      el.pawl.classList.toggle('on', !!(turned && turned[i]));
+      if (lastPath) {
+        const back = 11 + (ROTOR_COUNT - 1 - i);
+        el.fwd.textContent = `${sym(lastPath[i])}→${sym(lastPath[i + 1])}`;
+        el.ret.textContent = `${sym(lastPath[back + 1])}←${sym(lastPath[back])}`;
+      } else {
+        el.fwd.innerHTML = '&nbsp;';
+        el.ret.innerHTML = '&nbsp;';
+      }
+    });
+    if (turned) {                                       // restart the turn animation: write, one read, write
+      rotorEls.forEach((el, i) => { if (turned[i]) el.band.classList.remove('turn'); });
+      void ui.bank.offsetWidth;
+      rotorEls.forEach((el, i) => { if (turned[i]) el.band.classList.add('turn'); });
+    }
+    ui.nowOut.textContent = IRC.formatKey(machine.pos);
+    const n = machine.count;
+    ui.count.textContent = n < 10000 ? pad(n, 4) : n.toLocaleString('en-US');
+  }
+
+  // ---------------------------------------------------------------- messages, keys and undo
+  /** Rebuild the machine from the key and replay a keyed message (used by Backspace and Undo). */
+  function replay(symbols) {
+    stopPrinting();
+    machine = new IRC.Machine(key);
+    keyed = ''; printed = ''; lastPath = null;
+    let last = null;
+    const outs = [];
+    for (let i = 0; i < symbols.length; i++) {
+      last = machine.pressDetailed(symbols.charCodeAt(i) - 33);
+      outs.push(sym(last.out));
+    }
+    keyed = symbols;
+    printed = outs.join('');
+    if (last) lastPath = last.path;
+    lastPair = last ? [symbols[symbols.length - 1], sym(last.out)] : null;
+    renderBank(null);
+    renderOutput();
+  }
+
+  const snapshot = () => ({ key: key.slice(), keyed, direction, input: ui.input.value });
+  function restore(s, what) {
+    key = s.key.slice();
+    direction = s.direction;
+    showKey();
+    committedKey = ui.key.value;
+    ui.input.value = s.input; countChars();
+    renderDirection();
+    replay(s.keyed);
+    setStatus(`${what} undone. The message is back.`, 'ok');
+  }
+
+  /** When ciphertext leaves the machine (copied or downloaded), remember its key so reusing it can be warned about. */
+  function markKeyUsed() {
+    if (direction === 'enc' && keyed) usedKeys.set(IRC.formatKey(key), keyed);
+  }
+
+  /**
+   * Run a change that starts a new message. If a message was in progress, offer Undo; if an
+   * Undo is already on offer (say the button was clicked twice), keep it rather than lose it.
+   */
+  function newMessage(change, message, kind = 'ok') {
+    const before = snapshot();
+    const pending = undoIsUndo ? undoAction : null;
+    change();
+    replay('');
+    if (before.keyed) setStatus(`${message} The previous message was cleared.`, 'warn', () => restore(before, 'Change'));
+    else setStatus(message, kind, pending);
+  }
+
+  function showKey() {
+    ui.key.value = IRC.formatKey(key);
+    ui.key.removeAttribute('aria-invalid');
+    keyInvalid = false;
+  }
+
+  function setRotor(i, value) {
+    const v = ((value % N) + N) % N;
+    if (v === key[i] && machine.count === 0) return;
+    newMessage(() => { key[i] = v; showKey(); committedKey = ui.key.value; }, `Rotor ${i + 1} key setting is now ${pad(v, 2)}.`);
+    click(0, 0.5);
+  }
+
+  let committedKey = '';
+  function commitKey() {
+    const text = ui.key.value;
+    if (text === committedKey) return;
+    committedKey = text;
+    let next;
+    try {
+      next = IRC.parseKey(text);
+    } catch (err) {
+      ui.key.setAttribute('aria-invalid', 'true');
+      keyInvalid = true;
+      setStatus(`${err.message} The machine is still on the previous key; press Escape to put it back.`, 'err');
+      return;
+    }
+    newMessage(() => { key = next; showKey(); committedKey = ui.key.value; }, 'Key set. The rotors are at the key.');
+  }
+  ui.key.addEventListener('change', commitKey);
+  ui.key.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitKey(); }
+    if (e.key === 'Escape' && keyInvalid) { showKey(); committedKey = ui.key.value; setStatus('Key put back.', 'ok'); }
+  });
+  ui.key.addEventListener('blur', () => {                       // never leave a key on show that the machine is not using
+    if (keyInvalid) { showKey(); committedKey = ui.key.value; setStatus('That key was not valid, so the previous key was put back.', 'warn'); }
+  });
+
+  ui.randomKey.addEventListener('click', () => newMessage(() => { key = IRC.randomKey(); showKey(); committedKey = ui.key.value; },
+    'New random key set. Record it and give it to the other person safely before you send anything.'));
+  ui.copyKey.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(IRC.formatKey(key)); setStatus('Key copied. Share it by a separate, safe route.', 'ok'); }
+    catch { setStatus('The browser blocked copying. Select the key and copy it by hand.', 'err'); }
+  });
+  ui.resetRotors.addEventListener('click', () => newMessage(() => {}, 'Rotors reset to the key.'));
+  ui.newSheet.addEventListener('click', () => newMessage(() => {}, 'New sheet. The rotors are back at the key for a new message.'));
+
+  // ---------------------------------------------------------------- direction
+  function renderDirection() {
+    const enc = direction === 'enc';
+    ui.dirEnc.setAttribute('aria-checked', String(enc));
+    ui.dirDec.setAttribute('aria-checked', String(!enc));
+    ui.dirEnc.tabIndex = enc ? 0 : -1;
+    ui.dirDec.tabIndex = enc ? -1 : 0;
+    ui.outNote.textContent = enc ? 'Ciphertext: send this' : 'Plain text: the message you received';
+    ui.copyOut.textContent = enc ? 'Copy ciphertext' : 'Copy plain text';
+    renderOutput();
+  }
+  /** Changing direction mid-message would relabel what is on the paper, so it starts a new message. */
+  function setDirection(d, focus) {
+    finishPrinting();
+    if (d !== direction) {
+      const label = d === 'enc' ? 'Enciphering' : 'Deciphering';
+      if (keyed) newMessage(() => { direction = d; renderDirection(); }, `Switched to ${label}. The rotors are back at the key.`);
+      else { direction = d; renderDirection(); }
+    }
+    if (focus) (d === 'enc' ? ui.dirEnc : ui.dirDec).focus();
+  }
+  ui.dirEnc.addEventListener('click', () => setDirection('enc'));
+  ui.dirDec.addEventListener('click', () => setDirection('dec'));
+  [ui.dirEnc, ui.dirDec].forEach((b) => b.addEventListener('keydown', (e) => {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault(); e.stopPropagation(); setDirection(direction === 'enc' ? 'dec' : 'enc', true);
+    }
+  }));
+
+  // ---------------------------------------------------------------- typing into the LCD
+  const MAX_LIVE_PASTE = 100000;  // longer messages belong in paste mode
+  let announceTimer = 0;
+  let startupHint = true;
+  const spoken = (ch) => (ch === '~' ? 'tilde' : ch === ' ' ? 'space' : ch);
+
+  /** Checks and bookkeeping before the first symbol of a run is pressed. False means do not type. */
+  function beginTyping() {
+    if (keyInvalid) { setStatus('Fix the key, or press Escape in the key box to put the old one back, before typing.', 'err'); return false; }
+    stopPrinting(true);
+    if (!keyed && direction === 'enc' && usedKeys.has(IRC.formatKey(key))) {
+      setStatus('This key was already used for a message you copied or downloaded. Choose a new key before you send this one.', 'warn');
+    } else if (startupHint || undoAction) {
+      setStatus('');                                     // typing a new message ends the hint and any chance to undo
+    }
+    startupHint = false;
+    return true;
+  }
+
+  function afterTyping(lastIn, r, count) {
+    lastPath = r.path;
+    lastPair = [lastIn, sym(r.out)];
+    renderBank(r.stepped);
+    renderOutput(true);
+    click(0, 1);
+    const carries = r.stepped.filter(Boolean).length - 1;
+    for (let c = 1; c <= Math.min(carries, 3); c++) click(c * 0.025, 0.6);
+    clearTimeout(announceTimer);
+    announceTimer = setTimeout(() => {
+      ui.announce.textContent = count > 1
+        ? `${count} symbols typed. ${keyed.length} in this message.`
+        : `${spoken(lastIn)} prints ${spoken(sym(r.out))}. ${keyed.length} typed.`;
+    }, 450);
+  }
+
+  function backspace() {
+    if (!keyed) return;
+    replay(keyed.slice(0, -1));
+    click(0, 0.5);
+  }
+
+  /**
+   * Type a run of characters (one key, or a whole paste). Enciphering: spaces and line breaks
+   * become ~. Deciphering: whitespace is skipped, so received groups can be typed exactly as
+   * written. Anything off the keyboard stops the run with a message. A long run is pressed in
+   * one go and drawn once, so pasting stays fast.
+   */
+  const cipherSpace = (ch) => /\s/u.test(ch) || ch === '\u0085';
+  function typeText(text) {
+    const xs = [];
+    let stopped = '';
+    for (const ch of text.replace(/\r\n?/g, '\n')) {
+      if (direction === 'dec' && cipherSpace(ch)) continue;
+      const x = IRC.toIndex(ch);
+      if (x < 0) { stopped = ch; break; }
+      xs.push(x);
+    }
+    if (xs.length && beginTyping()) {
+      const outs = [];
+      let r = null;
+      for (const x of xs) { r = machine.pressDetailed(x); outs.push(sym(r.out)); }
+      keyed += xs.map(sym).join('');
+      printed += outs.join('');
+      afterTyping(sym(xs[xs.length - 1]), r, xs.length);
+    }
+    if (stopped) {
+      setStatus(`${IRC.describeChar(stopped)} is not on the machine’s keyboard${xs.length ? `; stopped after ${xs.length} symbols` : ''}.`, 'warn');
+    }
+  }
+
+  ui.typein.addEventListener('beforeinput', (e) => {
+    if (e.isComposing || e.inputType === 'insertCompositionText') return;   // handled at compositionend
+    e.preventDefault();
+    if (mode !== 'live') return;
+    const t = e.inputType;
+    if (t === 'deleteContentBackward' || t === 'deleteWordBackward' || t === 'deleteSoftLineBackward') backspace();
+    else if (t === 'insertLineBreak' || t === 'insertParagraph') typeText('\n');
+    else if ((t === 'insertText' || t === 'insertReplacementText' || t === 'insertFromComposition') && e.data) typeText(e.data);
+  });
+  // Dead keys and phone keyboards deliver characters through composition: type the result.
+  ui.typein.addEventListener('compositionend', (e) => {
+    if (mode === 'live' && e.data) typeText(e.data);
+    ui.typein.value = '';
+  });
+  ui.typein.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = e.clipboardData ? e.clipboardData.getData('text') : '';
+    if (text.length > MAX_LIVE_PASTE) {
+      setStatus(`Live typing takes pastes of up to ${MAX_LIVE_PASTE.toLocaleString('en-US')} characters. Use Paste a message for longer text.`, 'err');
+      return;
+    }
+    typeText(text);
+  });
+  ui.typein.addEventListener('input', (e) => { if (!e.isComposing) ui.typein.value = ''; });
+  ui.typein.addEventListener('focus', () => ui.bezel.classList.add('armed'));
+  ui.typein.addEventListener('blur', () => ui.bezel.classList.remove('armed'));
+
+  // A mouse click leaves focus on the clicked button; move it off so Space and Enter cannot press it again.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('button');
+    if (b && e.detail > 0 && !b.closest('.tabs, .switch')) b.blur();
+  });
+
+  // ---------------------------------------------------------------- output: LCD and paper
+  // Ciphertext groups are laid out to fit the width of the paper (and LCD), so a five-symbol
+  // group is never split across lines. Copy and Download use ten groups to a line.
+  const charWidth = new Map();
+  function groupsThatFit(el) {
+    if (!charWidth.has(el)) {
+      const probe = document.createElement('span');
+      probe.textContent = '0'.repeat(30);
+      probe.style.cssText = 'visibility:hidden;position:absolute;white-space:pre';
+      el.appendChild(probe);
+      charWidth.set(el, probe.getBoundingClientRect().width / 30);
+      probe.remove();
+    }
+    const cw = charWidth.get(el);
+    const width = el.clientWidth;
+    return cw > 0 && width > 0 ? Math.max(1, Math.floor((width + cw) / (6 * cw))) : 10;
+  }
+  window.addEventListener('resize', () => { charWidth.clear(); renderOutput(); });
+
+  /** Show text on the paper; the newest strike is a touch darker. */
+  function showOnPaper(text, fresh) {
+    ui.paperText.classList.toggle('plain', direction === 'dec');
+    ui.paperText.textContent = fresh && text ? text.slice(0, -1) : text;
+    if (fresh && text) {
+      const s = document.createElement('span');
+      s.className = 'fresh';
+      s.textContent = text.slice(-1);
+      ui.paperText.appendChild(s);
+    }
+    ui.paper.scrollTop = ui.paper.scrollHeight;
+  }
+  const paperText = (symbols) => (direction === 'enc'
+    ? IRC.groupCipher(symbols, 5, groupsThatFit(ui.paperText)) : readable(symbols));
+
+  // The LCD wraps the text and keeps the newest lines in view; only the tail is drawn, so huge pastes stay fast.
+  function renderOutput(fresh = false) {
+    if (printing) { renderPrinting(); return; }
+    const enc = direction === 'enc';
+    const tail = keyed.slice(-1500);
+    ui.lcdText.textContent = enc ? readable(tail) : IRC.groupCipher(tail, 5, groupsThatFit(ui.lcdText.parentElement));
+    ui.lcdMode.textContent = enc ? 'ENCIPHER' : 'DECIPHER';
+    // A space is shown as a space (it is enciphered as ~ inside the machine).
+    const shown = (ch, plain) => (plain && ch === '~' ? 'SPACE' : ch);
+    ui.lcdLast.textContent = lastPair ? `${shown(lastPair[0], enc)} → ${shown(lastPair[1], !enc)}` : 'READY';
+    ui.lcdCount.textContent = keyed.length < 10000 ? pad(keyed.length, 4) : keyed.length.toLocaleString('en-US');
+    showOnPaper(paperText(printed), fresh);
+    for (const b of [ui.copyOut, ui.download]) b.disabled = printed.length === 0;
+  }
+  const outputText = () => (direction === 'enc' ? IRC.groupCipher(printed) : readable(printed));
+
+  ui.copyOut.addEventListener('click', async () => {
+    const what = direction === 'enc' ? 'Ciphertext' : 'Plain text';
+    markKeyUsed();
+    try {
+      await navigator.clipboard.writeText(outputText());
+      setStatus(`${what} copied.`, 'ok');
+    } catch {
+      setStatus('The browser blocked copying. Select the text on the paper and copy it by hand.', 'err');
+    }
+  });
+  ui.download.addEventListener('click', () => {
+    const name = direction === 'enc' ? 'ciphertext.txt' : 'message.txt';
+    markKeyUsed();
+    const blob = new Blob([`${outputText()}\n`], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    setStatus(`Download started: ${name}`, 'ok');
+  });
+
+  // ---------------------------------------------------------------- paste mode
+  function countChars() {
+    const n = ui.input.value.length;
+    ui.inCount.textContent = `${n.toLocaleString('en-US')} character${n === 1 ? '' : 's'}`;
+  }
+  ui.input.addEventListener('input', countChars);
+
+  // ---------------------------------------------------------------- printing a pasted message
+  // Pasted messages print at 12 characters a second, the rated print speed of electronic
+  // typewriters sold today (Nakajima WPT-150/160, Brother ML-100, Royal Scriptor), with the
+  // drums turning and one strike per character.
+  const CHARS_PER_SECOND = 12;
+  const reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  let printing = null;            // { shownMachine, final, total, start, timer, done, lastClick, warning }
+
+  function renderPrinting() {
+    const n = printing.shownMachine.count;
+    showOnPaper(paperText(printed.slice(0, n)), n > 0);
+    for (const b of [ui.copyOut, ui.download]) b.disabled = true;
+  }
+
+  const duration = (seconds) => (seconds < 60 ? `${seconds} s`
+    : seconds < 7200 ? `${Math.ceil(seconds / 60)} min` : `${Math.round(seconds / 3600)} h`);
+
+  // A timer rather than requestAnimationFrame, so printing carries on in a background tab.
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  function printTick() {
+    const p = printing;
+    if (!p) return;
+    const target = Math.min(p.total, Math.floor(((clock() - p.start) / 1000) * CHARS_PER_SECOND));
+    const before = p.shownMachine.pos.slice();
+    while (p.shownMachine.count < target) p.shownMachine.pressIndex(keyed.charCodeAt(p.shownMachine.count) - 33);
+    machine = p.shownMachine;
+    renderBank(machine.pos.map((v, i) => v !== before[i]));
+    renderPrinting();
+    if (target > p.lastClick) { click(0, 0.6); p.lastClick = target; }   // one strike per character
+    // The visual progress updates every tick; the status line is not a live region while printing,
+    // so screen readers hear only the start and the end.
+    const left = Math.ceil((p.total - target) / CHARS_PER_SECOND);
+    setStatus(`${p.warning}Printing ${target.toLocaleString('en-US')} of ${p.total.toLocaleString('en-US')} symbols at ` +
+      `${CHARS_PER_SECOND} characters a second, about ${duration(left)} to go…`, p.warning ? 'warn' : '', () => finishPrinting(), 'Finish now');
+    if (target >= p.total) finishPrinting();
+    else p.timer = setTimeout(printTick, 1000 / CHARS_PER_SECOND / 2);
+  }
+
+  /** Stop the printout where it is, without its closing message (used when the message is replaced). */
+  function stopPrinting(keepResult = false) {
+    const p = printing;
+    if (!p) return;
+    clearTimeout(p.timer);
+    printing = null;
+    ui.status.setAttribute('aria-live', 'polite');
+    if (keepResult) { machine = p.final; renderBank(null); renderOutput(); }
+  }
+
+  /** Complete any printout in progress at once (Finish now, Escape, or any other action). */
+  function finishPrinting() {
+    const p = printing;
+    if (!p) return;
+    stopPrinting(true);
+    p.done();
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && printing) { e.preventDefault(); finishPrinting(); } });
+
+  function startPrinting(final, warning, done) {
+    if (reduceMotion.matches || keyed.length === 0) { machine = final; renderBank(null); renderOutput(); done(); return; }
+    printing = { shownMachine: new IRC.Machine(key), final, total: keyed.length, start: clock(), timer: 0, done, lastClick: 0, warning };
+    machine = printing.shownMachine;
+    clearTimeout(announceTimer);
+    ui.status.setAttribute('aria-live', 'off');
+    ui.announce.textContent = `${warning}Printing ${keyed.length.toLocaleString('en-US')} symbols at ${CHARS_PER_SECOND} characters a second. ` +
+      'Press Escape or Finish now to complete it at once.';
+    renderBank(null);
+    renderPrinting();                                     // a blank sheet before the first strike
+    printTick();
+  }
+
+  function runBatch(kind) {
+    if (printing) { finishPrinting(); return; }          // a second press completes the printout
+    const text = ui.input.value;
+    if (!text.trim()) {
+      setStatus(kind === 'enc' ? 'Type or paste a message to encipher.' : 'Paste the ciphertext you received.', 'warn');
+      ui.input.focus();
+      return;
+    }
+    const size = kind === 'enc' ? text.length : text.replace(/\s+/g, '').length;
+    if (size > MAX_BATCH) { setStatus(`Paste mode takes up to ${MAX_BATCH.toLocaleString('en-US')} symbols.`, 'err'); return; }
+    if (keyInvalid) { setStatus('Fix the key before enciphering or deciphering.', 'err'); return; }
+    const before = snapshot();
+    const offerBack = before.keyed ? () => restore(before, 'Replacing the message') : null;
+    let final, doneMessage, warning = '', notes = '';
+    try {
+      if (kind === 'enc') {
+        const prep = IRC.preparePlaintext(text);
+        const r = IRC.encrypt(key, text);
+        final = r.machine;
+        keyed = prep.symbols;
+        printed = r.raw;
+        const k = IRC.formatKey(key);
+        if (usedKeys.has(k) && usedKeys.get(k) !== keyed) warning = 'This key was already used for a different message; choose a new key before you send. ';
+        if (r.lineBreaks) notes += ` ${r.lineBreaks} line break${r.lineBreaks === 1 ? ' was' : 's were'} sent as ~.`;
+        if (prep.folded) notes += ` ${prep.folded} typographic character${prep.folded === 1 ? ' was' : 's were'} changed to plain keyboard form.`;
+        direction = 'enc';
+        doneMessage = `${warning}Enciphered ${printed.length.toLocaleString('en-US')} symbols.${notes} Send the ciphertext on the paper.`;
+      } else {
+        const r = IRC.decrypt(key, text);
+        final = r.machine;
+        keyed = IRC.prepareCiphertext(text);
+        printed = r.raw;
+        direction = 'dec';
+        doneMessage = `Deciphered ${printed.length.toLocaleString('en-US')} symbols. If it reads as noise, check the key.`;
+      }
+    } catch (err) {
+      replay('');                                        // never leave an older result on the paper
+      setStatus(err.message, 'err', offerBack);
+      return;
+    }
+    startupHint = false;
+    lastPath = null;
+    lastPair = null;
+    renderDirection();
+    startPrinting(final, warning, () => setStatus(doneMessage, warning ? 'warn' : 'ok', offerBack));
+  }
+  ui.encipher.addEventListener('click', () => runBatch('enc'));
+  ui.decipher.addEventListener('click', () => runBatch('dec'));
+  ui.clearBatch.addEventListener('click', () => {
+    const before = snapshot();
+    ui.input.value = ''; countChars();
+    replay('');
+    setStatus('Cleared. The rotors are back at the key.', 'ok',
+      before.input || before.keyed ? () => restore(before, 'Clear') : null);
+    ui.input.focus();
+  });
+
+  // ---------------------------------------------------------------- tabs
+  function selectTab(which, focus) {
+    finishPrinting();
+    if (which !== mode) {
+      mode = which;
+      const live = which === 'live';
+      ui.tabLive.setAttribute('aria-selected', String(live));
+      ui.tabBatch.setAttribute('aria-selected', String(!live));
+      ui.tabLive.tabIndex = live ? 0 : -1;
+      ui.tabBatch.tabIndex = live ? -1 : 0;
+      ui.panelLive.hidden = !live;
+      ui.panelBatch.hidden = live;
+      charWidth.clear();
+      renderOutput();
+      setStatus(live ? 'Type live: every key you press turns the rotors.' : 'Paste mode: the whole message runs from the key.');
+    }
+    if (focus) (mode === 'live' ? ui.tabLive : ui.tabBatch).focus();
+  }
+  ui.tabLive.addEventListener('click', () => selectTab('live'));
+  ui.tabBatch.addEventListener('click', () => selectTab('batch'));
+  [ui.tabLive, ui.tabBatch].forEach((t) => t.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); selectTab(mode === 'live' ? 'batch' : 'live', true); }
+  }));
+
+  // ---------------------------------------------------------------- self-test
+  ui.selfTest.addEventListener('click', () => {
+    const results = IRC.selfTest();
+    ui.testOut.textContent = '';
+    for (const r of results) {
+      const line = document.createElement('span');
+      line.className = r.pass ? 'p' : 'f';
+      line.textContent = `${r.pass ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? ` (${r.detail})` : ''}\n`;
+      ui.testOut.appendChild(line);
+    }
+    const failed = results.filter((r) => !r.pass).length;
+    setStatus(failed ? `${failed} self-test check(s) failed.` : `All ${results.length} self-test checks passed.`, failed ? 'err' : 'ok');
+  });
+
+  // ---------------------------------------------------------------- start
+  renderSound();
+  showKey();
+  committedKey = ui.key.value;
+  renderDirection();
+  replay('');
+  setStatus('A random key is set. Click the display and type, or enter the key you were given.');
+})();
+</script>
+</body>
+</html>

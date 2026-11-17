@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<!--
+  Imperial Rotor Cipher
+  Copyright (C) 2026 Antonio
+
+  This program is free software: you can redistribute it and/or modify it under the terms of the
+  GNU General Public License as published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version. It is distributed WITHOUT ANY WARRANTY; see the
+  GNU General Public License for details: https://www.gnu.org/licenses/gpl-3.0.html
+
+  This file is built from src/ by tools/build.js. Edit the files in src/, then run: node tools/build.js
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An offline, ten-rotor electromechanical cipher machine for the browser.">
+<title>Imperial Rotor Cipher</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 3 59 17v30L32 61 5 47V17Z' fill='%23111' stroke='%23e0262f' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%23e0262f'/%3E%3C/svg%3E">
+<style>
+/*@@CSS@@*/
+</style>
+</head>
+<body>
+<main class="console">
+
+  <header class="plate masthead">
+    <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 2 60 16v32L32 62 4 48V16Z" fill="#0b0d0f" stroke="#59616a" stroke-width="2"/>
+      <path d="M32 9 54 20v24L32 55 10 44V20Z" fill="none" stroke="#e0262f" stroke-width="2.5"/>
+      <g stroke="#8a939c" stroke-width="2.4" stroke-linecap="square">
+        <path d="M32 13v7M32 44v7M14.5 22.5l6 3.5M43.5 38l6 3.5M14.5 41.5l6-3.5M43.5 26l6-3.5"/>
+      </g>
+      <circle cx="32" cy="32" r="10" fill="#1d2227" stroke="#8a939c" stroke-width="2"/>
+      <path d="M32 25 38 32 32 39 26 32Z" fill="#e0262f"/>
+    </svg>
+    <div class="title">
+      <h1>Imperial Rotor Cipher</h1>
+      <p>Model X-10 signals cipher. Ten rotors, one reflector, 94 keyboard symbols.</p>
+    </div>
+    <div class="readouts">
+      <div class="readout" role="img" aria-label="About 2 to the power 65.4 different keys">
+        <b aria-hidden="true">2<sup>65.4</sup></b><span aria-hidden="true">different keys</span>
+      </div>
+      <div class="readout"><b id="countOut">0000</b><span>symbols this message</span></div>
+      <button class="btn quiet sound" id="sound" type="button" aria-pressed="true">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path class="spk" d="M3 8h3l4-3v10l-4-3H3z"/><path class="wave" d="M13 7c1.2 1.6 1.2 4.4 0 6M15.5 5c2.2 2.8 2.2 7.2 0 10"/><path class="mute" d="M13 7l5 6M18 7l-5 6"/></svg>
+        Sound
+      </button>
+    </div>
+  </header>
+
+  <section class="plate bank-plate" aria-labelledby="h-bank">
+    <div class="plate-head">
+      <h2 id="h-bank">Rotor bank</h2>
+      <p class="designation">The signal enters at rotor 1, turns at the reflector and comes back.</p>
+    </div>
+    <div class="bank-wrap">
+      <div class="endplate" aria-hidden="true">Entry</div>
+      <div class="bank" id="bank"></div>
+      <div class="endplate reflector" aria-hidden="true">Reflector</div>
+    </div>
+    <div class="bank-legend" aria-hidden="true">
+      <span><i class="lg-notch"></i>Turnover notch</span>
+      <span><i class="lg-pawl"></i>Stepped on the last key</span>
+      <span><i class="lg-fwd"></i>Signal in → out</span>
+      <span><i class="lg-ret"></i>Signal back ← in</span>
+    </div>
+  </section>
+
+  <section class="plate key-plate" aria-labelledby="h-key">
+    <div class="plate-head">
+      <h2 id="h-key">Key</h2>
+      <p class="designation">Ten window settings, rotor 1 first.</p>
+    </div>
+    <div class="keystrip">
+      <div class="keyfield">
+        <div class="label-row"><label for="key">Key: ten numbers from 00 to 93</label><button class="btn quiet small" id="copyKey" type="button">Copy key</button></div>
+        <input id="key" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+               aria-describedby="keyNote" placeholder="07-42-88-13-00-93-61-30-54-19">
+      </div>
+      <div class="key-actions">
+        <button class="btn" id="randomKey" type="button">Random key</button>
+        <button class="btn" id="resetRotors" type="button">Reset rotors to key</button>
+      </div>
+      <div class="now">
+        <p class="readout-label" id="nowLabel">Windows now</p>
+        <output id="nowOut" aria-labelledby="nowLabel"></output>
+      </div>
+      <p class="note" id="keyNote"><strong>Use a new key for every message.</strong> Two messages sent with the same key can be read against each other. Give the key to the other person by a separate route, never with the message.</p>
+    </div>
+  </section>
+
+  <section class="plate op-plate" aria-labelledby="h-op">
+    <div class="plate-head op-head">
+      <h2 id="h-op">Operator</h2>
+      <div class="tabs" role="tablist" aria-label="How to work">
+        <button class="tab" role="tab" id="tab-live" aria-controls="panel-live" aria-selected="true">Type live</button>
+        <button class="tab" role="tab" id="tab-batch" aria-controls="panel-batch" aria-selected="false" tabindex="-1">Paste a message</button>
+      </div>
+    </div>
+
+    <div id="panel-live" role="tabpanel" aria-labelledby="tab-live" class="livepad">
+      <div class="live-bar">
+        <div class="switch" role="radiogroup" aria-label="What you are doing">
+          <button type="button" role="radio" class="seg" id="dirEnc" aria-checked="true">Enciphering</button>
+          <button type="button" role="radio" class="seg" id="dirDec" aria-checked="false" tabindex="-1">Deciphering</button>
+        </div>
+        <p class="live-hint" id="liveHint">Click the display and type. <kbd>Backspace</kbd> takes back the last key; pasting types a whole message.</p>
+      </div>
+      <div class="lcd-bezel" id="lcdBezel">
+        <div class="lcd" aria-hidden="true">
+          <div class="lcd-main"><div class="lcd-flow"><span class="lcd-text" id="lcdText"></span><span class="lcd-cursor"></span></div></div>
+          <div class="lcd-sub"><span id="lcdMode">ENCIPHER</span><span id="lcdLast">READY</span><span id="lcdCount">0000</span></div>
+        </div>
+        <textarea id="typein" class="typein" rows="1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                  aria-label="Type here. Each key you type turns the rotors and prints one symbol." aria-describedby="liveHint"></textarea>
+      </div>
+    </div>
+
+    <div id="panel-batch" role="tabpanel" aria-labelledby="tab-batch" hidden>
+      <div class="field">
+        <label for="input"><span>Message or ciphertext</span><span id="inCount">0 characters</span></label>
+        <textarea id="input" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste plain text to encipher, or received ciphertext groups to decipher."></textarea>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="encipher" type="button">Encipher</button>
+        <button class="btn" id="decipher" type="button">Decipher</button>
+        <button class="btn quiet" id="clearBatch" type="button">Clear</button>
+      </div>
+    </div>
+    <div class="status-line">
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <button class="btn quiet small" id="undo" type="button" hidden>Undo</button>
+    </div>
+    <p class="visually-hidden" id="announce" aria-live="polite"></p>
+  </section>
+
+  <section class="plate output-plate" aria-labelledby="h-output">
+    <div class="plate-head">
+      <h2 id="h-output">Printed output</h2>
+      <p class="designation" id="outNote">Ciphertext: send this</p>
+    </div>
+    <div class="typewriter">
+      <div class="paper" id="paper" tabindex="0" role="region" aria-labelledby="h-output outNote">
+        <div class="paper-text" id="paperText"></div>
+      </div>
+      <div class="platen" aria-hidden="true"><span class="bail"></span></div>
+    </div>
+    <div class="row output-actions">
+      <button class="btn" id="copyOut" type="button">Copy ciphertext</button>
+      <button class="btn quiet" id="download" type="button">Download .txt</button>
+      <button class="btn quiet" id="newSheet" type="button">New sheet</button>
+    </div>
+  </section>
+
+  <section class="plate about" aria-labelledby="h-about">
+    <div class="plate-head"><h2 id="h-about">About the machine</h2><p class="designation">Free software under the GNU GPL v3</p></div>
+    <div class="about-cols">
+      <div>
+        <h3>How it works</h3>
+        <p>The X-10 is a digital model of an electromechanical rotor machine in the Enigma family. Every key press turns rotor 1. When a rotor reaches its turnover notch, a pawl pushes the next rotor along, and the notched rotor with it: Enigma’s double step. The signal runs through all ten rotors, is turned back by the reflector, and returns through the rotors to print one symbol.</p>
+        <p>Because the reflector sends the signal back along the same rotors, the machine undoes itself: set the same key and type the ciphertext to read the message. It also means no symbol ever enciphers to itself.</p>
+      </div>
+      <div>
+        <h3>How strong is it?</h3>
+        <p>The key is the ten window settings. Each has 94 positions, giving 94<sup>10</sup> ≈ 5.4 × 10<sup>19</sup> settings. The double step makes some settings act exactly like others, which leaves about 2<sup>65.4</sup> different keys, above 64 bits. Nine rotors would give only 2<sup>59</sup>.</p>
+        <p>That counts keys; it is not the work needed to break a message. Rotor 2 turns once every 94 symbols and rotor 3 roughly once every 8,800, so in a short message the slow rotors usually stand still or turn only once or twice. Between those moments they act as one fixed scrambler, and someone who knows or guesses part of a message has only about 8,800 settings to try. Enigma fell to the same kind of weakness. Use the X-10 for learning, puzzles and fun, not for real secrets.</p>
+        <p>Send ciphertext as a file, an email or a code block: chat apps may treat <code>*</code>, <code>_</code>, <code>~</code> and <code>`</code> as formatting and drop them.</p>
+      </div>
+    </div>
+    <details>
+      <summary>Wirings, rules and self-test</summary>
+      <ul>
+        <li>The alphabet is the 94 visible keyboard characters, <code>!</code> to <code>~</code>. Spaces and line breaks are sent as <code>~</code>, and <code>~</code> reads back as a space, so a typed <code>~</code> also comes back as a space. Other characters, such as tabs, accented letters and emoji, are refused.</li>
+        <li>The rotor wirings, turnover notches and reflector are fixed and published. They come from the public seed <code>IMPERIAL-ROTOR-CIPHER/parts/v1</code>, and the script in the project’s <code>tools</code> folder rebuilds them. Rotor 10’s notch has no effect, since no pawl sits beyond it.</li>
+        <li>Ciphertext is printed in groups of five. Spacing and line breaks are ignored when deciphering. One wrong symbol spoils only that symbol, but a missing or extra symbol garbles everything after it. Curly quotes, dashes and the ellipsis are changed to their plain keyboard forms.</li>
+      </ul>
+      <button class="btn" id="selfTest" type="button">Run self-test</button>
+      <pre id="testOut"></pre>
+    </details>
+  </section>
+
+  <footer class="footer">Imperial Rotor Cipher is free software under the GNU GPL v3. It runs entirely in this page; nothing you type is sent anywhere.</footer>
+</main>
+
+<script id="irc-core">
+/*@@CORE@@*/
+</script>
+<script>
+/*@@UI@@*/
+</script>
+</body>
+</html>
