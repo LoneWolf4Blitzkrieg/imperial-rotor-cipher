@@ -2,7 +2,9 @@
 
 A ten-rotor cipher machine in the Enigma family, built as a digital model of an electromechanical machine. It is one HTML file that runs offline in any modern browser. There is nothing to install, no account, and no network access.
 
-**Use it:** download `index.html` and open it in your browser.
+**Use it online:** https://lonewolf4blitzkrieg.github.io/imperial-rotor-cipher/
+
+**Or offline:** download `index.html` and open it in your browser. Everything runs in the page; nothing you type is sent anywhere.
 
 ![The console at 1920 × 1080](docs/screenshots/desktop-1920.png)
 
